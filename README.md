@@ -30,6 +30,9 @@ Each example lives in its own numbered directory, all visible side by side:
 Shared training and inference code lives in `py/`, adapted from the author's
 larger small-transformer work.
 
+Run `python3.11 py/smoke_test.py` for a quick check that the model code
+builds and a forward pass works (torch is installed under `python3.11`).
+
 ## Status
 
 Started 2026-05-22. Scaffold only so far.
