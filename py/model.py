@@ -386,6 +386,7 @@ class GPTConfig:
     tie_weights: bool = True  # Tie input embeddings to output projection
     no_gelu: bool = False  # Disable GELU nonlinearity in MLP (makes it purely linear)
     disable_layernorm: bool = False  # Disable all LayerNorm (required when n_embd=1)
+    distance_readout: bool = False  # Use -||x - e_i||^2 readout (tied) instead of x . e_i  (see diary 002)
     autocorr_top_k: int = None  # Number of top lags for autocorrelation (None = all)
 
 
@@ -452,6 +453,24 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
+    def compute_logits(self, x):
+        """Map final-layer activations to vocab logits.
+
+        Two modes:
+          - Standard (default): logits_i = x . e_i  (the usual tied-linear readout).
+          - distance_readout:    logits_i = -||x - e_i||^2  (squared-distance
+            readout against the tied embedding).
+        See diary 002 for the math: the distance form is equivalent to a linear
+        head with per-token weight 2*e_i and bias -||e_i||^2, parameter-free.
+        """
+        if getattr(self.config, 'distance_readout', False):
+            e = self.lm_head.weight  # tied: same tensor as self.transformer.wte.weight
+            x_sq = (x * x).sum(-1, keepdim=True)   # (B, T, 1)
+            e_sq = (e * e).sum(-1)                 # (V,)
+            xe = x @ e.T                           # (B, T, V)
+            return -(x_sq - 2.0 * xe + e_sq)
+        return self.lm_head(x)
+
     def forward(self, idx, targets=None):
         device = idx.device
         b, t = idx.size()
@@ -467,10 +486,10 @@ class GPT(nn.Module):
         x = self.transformer.ln_f(x)
 
         if targets is not None:
-            logits = self.lm_head(x)
+            logits = self.compute_logits(x)
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
         else:
-            logits = self.lm_head(x[:, [-1], :])
+            logits = self.compute_logits(x[:, [-1], :])
             loss = None
 
         return logits, loss

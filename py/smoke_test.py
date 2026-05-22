@@ -59,10 +59,15 @@ def main():
     # 2. Small model on the default path, LayerNorm left on.
     standard = GPTConfig(vocab_size=16, block_size=16, n_layer=2, n_head=2,
                          n_embd=4, dropout=0.0)
+    # 3. Minimal 1-D with the squared-distance readout (diary 002).
+    distance = GPTConfig(vocab_size=8, block_size=16, n_layer=1, n_head=1,
+                         n_embd=1, dropout=0.0, bias=False, no_gelu=True,
+                         disable_layernorm=True, distance_readout=True)
 
     all_failures = []
-    for label, cfg, expect in [("minimal 1-D", minimal, True),
-                               ("standard", standard, False)]:
+    for label, cfg, expect in [("minimal 1-D",   minimal,  True),
+                               ("standard",      standard, False),
+                               ("distance head", distance, True)]:
         failures, loss = check(cfg, expect_ln_disabled=expect)
         print(f"[{'ok' if not failures else 'FAIL'}] {label}: loss {loss.item():.4f}")
         all_failures += [f"{label}: {f}" for f in failures]
