@@ -385,6 +385,7 @@ class GPTConfig:
     use_autocorrelation_attention: bool = False  # Set True to use autocorrelation attention
     tie_weights: bool = True  # Tie input embeddings to output projection
     no_gelu: bool = False  # Disable GELU nonlinearity in MLP (makes it purely linear)
+    disable_layernorm: bool = False  # Disable all LayerNorm (required when n_embd=1)
     autocorr_top_k: int = None  # Number of top lags for autocorrelation (None = all)
 
 
@@ -407,6 +408,14 @@ class GPT(nn.Module):
         if getattr(config, 'tie_weights', True):
             self.transformer.wte.weight = self.lm_head.weight  # weight tying
 
+        # Optionally switch every LayerNorm into pass-through mode. This is
+        # required at n_embd=1, where normalizing a length-1 vector collapses
+        # it to a constant; it is also useful for a fully affine model.
+        if getattr(config, 'disable_layernorm', False):
+            for module in self.modules():
+                if isinstance(module, LayerNorm):
+                    module.disabled = True
+
         # init all weights
         self.apply(self._init_weights)
         # apply special scaled init to the residual projections, per GPT-2 paper
@@ -422,7 +431,8 @@ class GPT(nn.Module):
         else:
             attn_type = "softmax"
         tie_status = "tied" if getattr(config, 'tie_weights', True) else "untied"
-        print(f"number of parameters: %.2fM ({attn_type} attention, {tie_status} weights)" % (self.get_num_params()/1e6,))
+        ln_status = ", layernorm off" if getattr(config, 'disable_layernorm', False) else ""
+        print(f"number of parameters: %.2fM ({attn_type} attention, {tie_status} weights{ln_status})" % (self.get_num_params()/1e6,))
 
     def get_num_params(self, non_embedding=True):
         """
