@@ -113,6 +113,14 @@ def parse_args():
     parser.add_argument('--no_gelu', action='store_true',
                        help='Disable GELU nonlinearity in MLP (makes it purely linear)')
 
+    # LayerNorm option (required at n_embd=1, where LN is degenerate)
+    parser.add_argument('--disable_layernorm', action='store_true',
+                       help='Disable all LayerNorm modules (pass-through)')
+
+    # Readout option (squared-distance, tied-embedding readout -- see diary 002)
+    parser.add_argument('--distance_readout', action='store_true',
+                       help='Use squared-distance readout (-||x - e_i||^2) instead of x . e_i')
+
     # Precision option
     parser.add_argument('--precision', type=str, default='float32',
                        choices=['float16', 'float32', 'float64', 'bfloat16'],
@@ -882,6 +890,8 @@ def main():
             use_autocorrelation_attention=args.autocorrelation_attention,
             tie_weights=not args.untie_weights,
             no_gelu=args.no_gelu,
+            disable_layernorm=args.disable_layernorm,
+            distance_readout=args.distance_readout,
         )
 
         gptconf = GPTConfig(**model_args)
