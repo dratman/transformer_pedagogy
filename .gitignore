@@ -15,6 +15,7 @@ venv/
 checkpoints/
 runs/
 *.log
+txt_local/
 
 # OS
 .DS_Store
