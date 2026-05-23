@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
-Generate a periodic-cycle corpus for the rung-1 dimension-floor experiments.
+Generate a periodic corpus for the rung-1 experiments.
 
-Given an alphabet (e.g. "ABCD"), writes the strictly periodic stream
-ABCDABCDABCD... (vocab = the distinct letters, deterministic length-1
-next-token rule) to txt_local/<lowercase>_periodic.txt. Total length is
-fixed at ~60,000 chars across alphabets so corpus exposure is comparable.
+Given a *pattern* (e.g. "ABCD", "AABB"), writes the strictly periodic
+stream pattern*pattern*pattern... to txt_local/<lowercase>_periodic.txt.
+The pattern may contain repeated characters; the vocab is the set of
+distinct characters appearing in it. Total length is fixed at ~60,000
+chars across patterns so corpus exposure is comparable.
 
 Usage:
     python3.11 py/make_corpus_periodic.py            # default ABCD
     python3.11 py/make_corpus_periodic.py ABCDE      # vocab 5 cycle
+    python3.11 py/make_corpus_periodic.py AABB       # context-2 pattern
 """
 
 import sys
@@ -22,8 +24,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 def main() -> None:
     pattern = sys.argv[1] if len(sys.argv) > 1 else "ABCD"
-    if len(pattern) < 2 or len(set(pattern)) != len(pattern):
-        sys.exit(f"alphabet must be at least 2 distinct chars: got {pattern!r}")
+    if len(pattern) < 2 or len(set(pattern)) < 2:
+        sys.exit(f"pattern must be length >= 2 with >= 2 distinct chars: got {pattern!r}")
     cycles = TARGET_CHARS // len(pattern)
     text = pattern * cycles
     out = PROJECT_ROOT / "txt_local" / f"{pattern.lower()}_periodic.txt"
